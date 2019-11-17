@@ -3,6 +3,7 @@ package mapreduce
 import (
 	"encoding/json"
 	"os"
+	"sort"
 )
 
 // doReduce manages one reduce task: it reads the intermediate
@@ -49,30 +50,32 @@ func doReduce(
 	// file.Close()
 	//
 
-	kvMap := make(map[string][]string)
-
-	for i := 0; i < nMap; i++ {
-		f, err := os.Open(reduceName(jobName, i, reduceTaskNumber))
-		check_err(err)
+	kvmap := make(map[string][]string)
+	for m := 0; m < nMap; m++ {
+		intermediateFileName := reduceName(jobName, m, reduceTaskNumber)
+		f, _ := os.OpenFile(intermediateFileName, os.O_RDWR|os.O_CREATE, 0755)
 
 		decoder := json.NewDecoder(f)
-
 		for true {
-			kv := new(KeyValue)
+			var kv KeyValue
 			err := decoder.Decode(&kv)
 			if err != nil {
 				break
 			}
-			kvMap[kv.Key] = append(kvMap[kv.Key], kv.Value)
+			// add the kv to a list
+			kvmap[kv.Key] = append(kvmap[kv.Key], kv.Value)
 		}
 	}
-
-	f, err := os.OpenFile(outFile, os.O_RDWR|os.O_CREATE, 0755)
-	check_err(err)
-
-	enc := json.NewEncoder(f)
-	for key, value := range kvMap {
-		enc.Encode(KeyValue{key, reduceF(key, value)})
+	var keys []string
+	for k := range kvmap {
+		keys = append(keys, k)
 	}
-	f.Close()
+	sort.Strings(keys)
+
+	f, _ := os.OpenFile(outFile, os.O_RDWR|os.O_CREATE, 0755)
+	enc := json.NewEncoder(f)
+	for _, s := range keys {
+		_ = enc.Encode(KeyValue{s, reduceF(s, kvmap[s])})
+	}
+	_ = f.Close()
 }
