@@ -6,8 +6,8 @@ import (
 )
 
 //
-// schedule() starts and waits for all tasks in the given phase (Map
-// or Reduce). the mapFiles argument holds the names of the files that
+// schedule() starts and waits for all tasks in the given phase (mapPhase
+// or reducePhase). the mapFiles argument holds the names of the files that
 // are the inputs to the map phase, one per map task. nReduce is the
 // number of reduce tasks. the registerChan argument yields a stream
 // of registered workers; each item is the worker's RPC address,
@@ -28,12 +28,11 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 
 	fmt.Printf("Schedule: %v %v tasks (%d I/Os)\n", ntasks, phase, n_other)
 
-	// All ntasks tasks have to be scheduled on workers, and only once all of
-	// them have been completed successfully should the function return.
-	// Remember that workers may fail, and that any given worker may finish
-	// multiple tasks.
+	// All ntasks tasks have to be scheduled on workers. Once all tasks
+	// have completed successfully, schedule() should return.
 	//
-	// for map
+	// Your code here (Part III, Part IV).
+	//
 	var wg sync.WaitGroup
 	for i := 0; i < ntasks; i++ {
 		registerWorker := <- registerChan
@@ -41,7 +40,7 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 			JobName: jobName,
 			File   : mapFiles[i],
 			Phase  : phase,
-			TaskNumber: ntasks,
+			TaskNumber: i,
 			NumOtherPhase: n_other,
 		}
 		go func() {
@@ -50,6 +49,7 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 			if re {
 				wg.Done()
 			}
+			registerChan <- registerWorker
 		}()
 	}
 

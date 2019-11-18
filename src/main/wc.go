@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"mapreduce"
 	"os"
-	"strconv"
 	"strings"
+	"strconv"
 	"unicode"
 )
 
@@ -17,19 +17,16 @@ import (
 // of key/value pairs.
 //
 func mapF(filename string, contents string) []mapreduce.KeyValue {
-	var kvpairs []mapreduce.KeyValue
-	var kvmap = make(map[string]int)
-	words := strings.FieldsFunc(contents, func(r rune) bool { return !unicode.IsLetter(r) })
-	for _, word := range words {
-		kvmap[word] += 1
+	// Your code here (Part II).
+	var res []mapreduce.KeyValue
+	f := func(c rune) bool {
+		return !unicode.IsLetter(c)
 	}
-	for k, v := range kvmap {
-		kvpairs = append(kvpairs, mapreduce.KeyValue{
-			Key:   k,
-			Value: strconv.Itoa(v),
-		})
+	words := strings.FieldsFunc(contents, f)
+	for _, w := range words {
+		res = append(res, mapreduce.KeyValue{w, "1"})
 	}
-	return kvpairs
+	return res
 }
 
 //
@@ -38,10 +35,15 @@ func mapF(filename string, contents string) []mapreduce.KeyValue {
 // any map task.
 //
 func reduceF(key string, values []string) string {
-	var count = 0
+	// Your code here (Part II).
+	count := 0
+	//count = len(values)
 	for _, s := range values {
-		i, _ := strconv.Atoi(s)
-		count += i
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			panic(err)
+		}
+		count += n
 	}
 	return strconv.Itoa(count)
 }
@@ -62,6 +64,6 @@ func main() {
 		}
 		mr.Wait()
 	} else {
-		mapreduce.RunWorker(os.Args[2], os.Args[3], mapF, reduceF, 100)
+		mapreduce.RunWorker(os.Args[2], os.Args[3], mapF, reduceF, 100, nil)
 	}
 }
