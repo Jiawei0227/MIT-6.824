@@ -33,25 +33,44 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 	//
 	// Your code here (Part III, Part IV).
 	//
-	var wg sync.WaitGroup
-	for i := 0; i < ntasks; i++ {
-		registerWorker := <- registerChan
-		args := DoTaskArgs{
-			JobName: jobName,
-			File   : mapFiles[i],
-			Phase  : phase,
-			TaskNumber: i,
-			NumOtherPhase: n_other,
+
+	todoChannel := make(chan int)
+	go func() {
+		for i := 0; i < ntasks; i++ {
+			todoChannel <- i
 		}
-		go func() {
-			wg.Add(1)
-			re := call(registerWorker, "Worker.DoTask", &args, nil )
-			if re {
-				wg.Done()
-			}
-			registerChan <- registerWorker
-		}()
-	}
+	}()
+	fmt.Printf("Adding %v tasks done \n", ntasks)
+
+	var wg sync.WaitGroup
+	wg.Add(ntasks)
+
+	// need to run in a goroutine because fetching is blocked = =
+	go func() {
+		for i := range todoChannel {
+			registerWorker := <-registerChan
+			go func(task int) {
+				args := DoTaskArgs{
+					JobName:       jobName,
+					File:          mapFiles[task],
+					Phase:         phase,
+					TaskNumber:    task,
+					NumOtherPhase: n_other,
+				}
+				re := call(registerWorker, "Worker.DoTask", &args, nil)
+				defer func() { registerChan <- registerWorker }()
+				if re {
+					fmt.Printf("Task %v done \n", task)
+					wg.Done()
+				} else {
+					todoChannel <- task
+				}
+			}(i)
+		}
+	}()
+
+
+	fmt.Printf("Waiting for all to finish?")
 
 	wg.Wait()
 
